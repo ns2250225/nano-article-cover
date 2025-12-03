@@ -39,7 +39,7 @@ const generateImage = async () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer sk-b7182e2c0c3248b6aafcedad465af768',
+        'Authorization': 'Bearer API_KEY',
         'Accept': 'text/event-stream'
       },
       body: JSON.stringify({
