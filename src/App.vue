@@ -102,7 +102,8 @@ const generateImage = async () => {
             loading.value = false;
             progress.value = 100;
           } else if (data.status === 'failed') {
-            throw new Error(data.error || data.failure_reason || 'Generation failed');
+            const reason = data.failure_reason || data.error || '生成失败';
+            throw new Error(`${reason}，建议您稍后重试`);
           }
         } catch (e) {
           // Ignore parsing errors for partial lines
