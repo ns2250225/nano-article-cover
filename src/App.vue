@@ -39,14 +39,15 @@ const generateImage = async () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer API_KEY'
+        'Authorization': 'Bearer sk-b7182e2c0c3248b6aafcedad465af768',
+        'Accept': 'text/event-stream'
       },
       body: JSON.stringify({
         model: "nano-banana-pro",
         prompt: promptTemplate,
         aspectRatio: "16:9",
         imageSize: "1K",
-        urls: ["https://example.com/example.png"]
+        urls: []
       })
     });
 
@@ -64,31 +65,37 @@ const generateImage = async () => {
 
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
+      
+      if (value) {
+        buffer += decoder.decode(value, { stream: !done });
+      }
       
       const lines = buffer.split('\n');
       
-      if (buffer.endsWith('\n')) {
-          buffer = '';
-      } else {
+      if (!done) {
           buffer = lines.pop() || '';
+      } else {
+          buffer = '';
       }
 
       for (const line of lines) {
         const trimmed = line.trim();
         if (!trimmed) continue;
         
+        // console.log('Received line:', trimmed); // Debug log
+
         try {
           let jsonStr = trimmed;
-          if (trimmed.startsWith('data: ')) {
-             jsonStr = trimmed.slice(6);
+          // Handle SSE format (data: ...)
+          if (jsonStr.startsWith('data:')) {
+             jsonStr = jsonStr.replace(/^data:\s*/, '');
           }
           
           if (jsonStr === '[DONE]') continue;
+          if (!jsonStr) continue;
 
           const data = JSON.parse(jsonStr);
+          // console.log('Parsed data:', data); // Debug log
           
           if (typeof data.progress !== 'undefined') {
             progress.value = data.progress;
@@ -101,19 +108,28 @@ const generateImage = async () => {
           if (data.status === 'succeeded') {
             loading.value = false;
             progress.value = 100;
+            return;
           } else if (data.status === 'failed') {
             const reason = data.failure_reason || data.error || '生成失败';
+            try { await reader.cancel(); } catch (e) { /* ignore cancel error */ }
             throw new Error(`${reason}，建议您稍后重试`);
           }
         } catch (e) {
+          // console.error('Parse error for line:', trimmed, e);
           // Ignore parsing errors for partial lines
+          if (e instanceof Error && e.message.includes('建议您稍后重试')) {
+            throw e;
+          }
         }
       }
+      
+      if (done) break;
     }
   } catch (err: any) {
     console.error(err);
     errorMsg.value = err.message || '生成失败，请稍后重试';
     loading.value = false;
+    progress.value = 0; // Reset progress on error
   }
 };
 
@@ -217,7 +233,7 @@ const downloadImage = async (url: string) => {
         </div>
 
         <!-- Error Message -->
-        <div v-if="errorMsg" class="mb-8 bg-red-50 border-l-4 border-red-400 p-4 rounded-r-md">
+        <div v-if="errorMsg" class="mb-8 bg-red-50 border-l-4 border-red-400 p-4 rounded-r-md animate-fade-in">
           <div class="flex">
             <div class="flex-shrink-0">
               <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
