@@ -110,9 +110,10 @@ const generateImage = async () => {
             progress.value = 100;
             return;
           } else if (data.status === 'failed') {
-            const reason = data.failure_reason || data.error || '生成失败';
+            const reason = data.failure_reason || '生成失败';
+            const detail = data.error ? ` (${data.error})` : '';
             try { await reader.cancel(); } catch (e) { /* ignore cancel error */ }
-            throw new Error(`${reason}，建议您稍后重试`);
+            throw new Error(`${reason}${detail}，建议您稍后重试`);
           }
         } catch (e) {
           // console.error('Parse error for line:', trimmed, e);
